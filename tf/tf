@@ -1,0 +1,11 @@
+#!/usr/bin/env bash
+
+which docker >/dev/null || echo "Up requires Docker to run."
+
+docker run \
+	-it \
+	-v ${PWD}:/tf \
+	-v ${HOME}/.config/gcloud:/root/.config/gcloud \
+	-w /tf \
+	--entrypoint /tf/tflib.sh \
+	hashicorp/terraform:0.11.10 $@
