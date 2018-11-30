@@ -1,0 +1,139 @@
+---
+apiVersion: storage.k8s.io/v1
+kind: StorageClass
+metadata:
+  name: etcd-ssd
+parameters:
+  type: pd-ssd
+provisioner: kubernetes.io/gce-pd
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: etcd
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: etcd-operator
+  namespace: etcd
+  labels:
+    component: etcd-operator
+---
+apiVersion: rbac.authorization.k8s.io/v1beta1
+kind: ClusterRole
+metadata:
+  name: etcd-operator
+  labels:
+    component: etcd-operator
+rules:
+- apiGroups:
+  - apiextensions.k8s.io
+  resources:
+  - customresourcedefinitions
+  verbs:
+  - "*"
+---
+apiVersion: rbac.authorization.k8s.io/v1beta1
+kind: ClusterRoleBinding
+metadata:
+  name: etcd-operator
+  labels:
+    component: etcd-operator
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: etcd-operator
+subjects:
+- kind: ServiceAccount
+  name: etcd-operator
+  namespace: etcd
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: etcd-operator
+  namespace: etcd
+  labels:
+    component: etcd-operator
+rules:
+- apiGroups:
+  - etcd.database.coreos.com
+  resources:
+  - etcdclusters
+  - etcdbackups
+  - etcdrestores
+  verbs:
+  - "*"
+- apiGroups:
+  - ""
+  resources:
+  - pods
+  - services
+  - endpoints
+  - persistentvolumeclaims
+  - events
+  verbs:
+  - "*"
+- apiGroups:
+  - apps
+  resources:
+  - deployments
+  verbs:
+  - "*"
+- apiGroups:
+  - ""
+  resources: 
+  - secrets
+  verbs:
+  - get
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: etcd-operator
+  namespace: etcd
+  labels:
+    component: etcd-operator
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: etcd-operator
+subjects:
+- kind: ServiceAccount
+  name: etcd-operator
+  namespace: etcd
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: etcd-operator
+  namespace: etcd
+  labels:
+    component: etcd-operator
+spec:
+  selector:
+    matchLabels:
+      component: etcd-operator
+  replicas: 3
+  template:
+    metadata:
+      labels:
+        component: etcd-operator
+    spec:
+      serviceAccountName: etcd-operator
+      containers:
+      - name: etcd-operator
+        image: quay.io/coreos/etcd-operator:v0.9.3
+        command:
+        - etcd-operator
+        - "-v=4"
+        env:
+        - name: MY_POD_NAMESPACE
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.namespace
+        - name: MY_POD_NAME
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.name

@@ -1,0 +1,44 @@
+# This experimental manifest creates an etcd cluster on the shared 'light' node
+# pool. To schedule on dedicated nodes we'd change the node selector and
+# tolerations, and increase the resource requests and limits such that they use
+# an entire node.
+apiVersion: etcd.database.coreos.com/v1beta2
+kind: EtcdCluster
+metadata:
+  name: etcd-light-a
+  namespace: etcd
+spec:
+  version: "3.2.13"
+  size: 3
+  pod:
+    nodeSelector:
+      "up.rk0n.org/pool_type": "light"
+    tolerations:
+    - key: "up.rk0n.org/pool_type"
+      operator: "Equal"
+      value: "light"
+      effect: "NoSchedule"
+    affinity:
+      podAntiAffinity:
+        requiredDuringSchedulingIgnoredDuringExecution:
+        - labelSelector:
+            matchExpressions:
+            - key: etd_cluster
+              operator: In
+              values:
+              - etcd-light-a
+          topologyKey: "kubernetes.io/hostname"
+    resources:
+      limits:
+        cpu: 300m
+        memory: 200Mi
+      requests:
+        cpu: 300m
+        memory: 200Mi
+    persistentVolumeClaimSpec:
+      storageClassName: etcd-ssd
+      accessModes:
+      - ReadWriteOnce
+      resources:
+        requests:
+          storage: 2Gi
